@@ -1,34 +1,38 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
 
-
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="COVID-19 Data Dashboard",
     page_icon="📊",
     layout="wide"
 )
 
-
+# ---------------- TITLE ----------------
 st.title("📊 COVID-19 Data Visualization")
-st.write("Dataset preview at top and graphs below")
+st.write("Hover on any point to see live popup data")
 st.divider()
 
+# ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
     return pd.read_csv("covid_19.csv")
 
 df = load_data()
+
+# Add index column for hover display
+df["Index"] = df.index
+
 numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
 
-# ---------------- DATA PREVIEW (TOP) ----------------
+# ---------------- DATA PREVIEW ----------------
 st.subheader("📄 Dataset Preview")
 st.dataframe(df, width="stretch")
 
-
 st.divider()
 
-
+# ---------------- GRAPH CONTROLS ----------------
 st.subheader("📊 Graph Controls")
 
 col1, col2 = st.columns(2)
@@ -42,44 +46,70 @@ with col2:
         ["Line Chart", "Bar Graph", "Histogram", "Pie Chart", "Dot Plot"]
     )
 
-
+# ---------------- GRAPH DISPLAY ----------------
 st.subheader(f"{graph} for {metric}")
 
-fig, ax = plt.subplots(figsize=(10, 4))
-
 if graph == "Line Chart":
-    ax.plot(df[metric])
-    ax.set_xlabel("Index")
-    ax.set_ylabel(metric)
+    fig = px.line(
+        df,
+        x="Index",
+        y=metric,
+        title=f"{metric} over Index",
+        hover_data={
+            "Index": True,
+            metric: ":,.2f"
+        }
+    )
 
 elif graph == "Bar Graph":
-    ax.bar(range(len(df)), df[metric])
-    ax.set_xlabel("Index")
-    ax.set_ylabel(metric)
+    fig = px.bar(
+        df,
+        x="Index",
+        y=metric,
+        title=f"{metric} Bar Graph",
+        hover_data={
+            "Index": True,
+            metric: ":,.2f"
+        }
+    )
 
 elif graph == "Histogram":
-    ax.hist(df[metric], bins=25)
-    ax.set_xlabel(metric)
-    ax.set_ylabel("Frequency")
+    fig = px.histogram(
+        df,
+        x=metric,
+        nbins=25,
+        title=f"{metric} Distribution",
+        hover_data={metric: ":,.2f"}
+    )
 
 elif graph == "Pie Chart":
-    top_values = df[metric].value_counts().head(5)
-    ax.pie(
-        top_values.values,
-        labels=top_values.index,
-        autopct="%1.1f%%",
-        startangle=90
+    top_values = df[metric].value_counts().head(5).reset_index()
+    top_values.columns = ["Value", "Count"]
+
+    fig = px.pie(
+        top_values,
+        values="Count",
+        names="Value",
+        title="Top 5 Value Distribution",
+        hover_data={"Count": True}
     )
-    ax.set_title("Top 5 Value Distribution")
 
 elif graph == "Dot Plot":
-    ax.plot(df[metric], '.', markersize=6)
-    ax.set_xlabel("Index")
-    ax.set_ylabel(metric)
+    fig = px.scatter(
+        df,
+        x="Index",
+        y=metric,
+        title=f"{metric} Dot Plot",
+        hover_data={
+            "Index": True,
+            metric: ":,.2f"
+        }
+    )
 
-st.pyplot(fig)
+# Show chart
+st.plotly_chart(fig, use_container_width=True)
 
-
+# ---------------- STATISTICS ----------------
 st.divider()
 st.subheader("📌 Statistical Summary")
 
